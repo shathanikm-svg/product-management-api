@@ -6,7 +6,7 @@ class ProductModel {
   }
 
   findAll(filters = {}) {
-    let results = Array.from(this.products.values());
+    let results = Array.from(this.products.values()).filter(p => p.archivedAt === null);
 
     if (filters.category) {
       results = results.filter(p => p.category === filters.category);
@@ -14,15 +14,30 @@ class ProductModel {
     if (filters.status) {
       results = results.filter(p => p.status === filters.status);
     }
-    if (filters.name) {
-      results = results.filter(p => p.name.toLowerCase().includes(filters.name.toLowerCase()));
+    if (filters.minPrice) {
+      results = results.filter(p => p.price >= parseFloat(filters.minPrice));
+    }
+    if (filters.maxPrice) {
+      results = results.filter(p => p.price <= parseFloat(filters.maxPrice));
+    }
+    if (filters.inStock !== undefined) {
+      const inStock = filters.inStock === 'true' || filters.inStock === true;
+      results = results.filter(p => (p.stock > 0) === inStock);
+    }
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      results = results.filter(p =>
+        p.name.toLowerCase().includes(searchTerm) ||
+        p.description.toLowerCase().includes(searchTerm)
+      );
     }
 
     return results;
   }
 
   findById(id) {
-    return this.products.get(id);
+    const product = this.products.get(id);
+    return (product && product.archivedAt === null) ? product : null;
   }
 
   findBySku(sku) {
@@ -32,7 +47,7 @@ class ProductModel {
   create(data) {
     const skuExists = this.findBySku(data.sku);
     if (skuExists) {
-      throw new Error('Product with this SKU already exists');
+      throw { statusCode: 409, message: 'Product with this SKU already exists' };
     }
 
     const product = {
@@ -45,6 +60,7 @@ class ProductModel {
       stock: parseInt(data.stock, 10),
       status: data.status || 'active',
       createdAt: new Date(),
+      archivedAt: null,
     };
 
     this.products.set(product.id, product);
@@ -58,7 +74,7 @@ class ProductModel {
     if (patch.sku) {
       const skuExists = this.findBySku(patch.sku);
       if (skuExists && skuExists.id !== id) {
-        throw new Error('Product with this SKU already exists');
+        throw { statusCode: 409, message: 'Product with this SKU already exists' };
       }
     }
 
@@ -74,9 +90,18 @@ class ProductModel {
   }
 
   delete(id) {
-    const product = this.findById(id);
-    if (!product) return null;
-    this.products.delete(id);
+    const product = this.products.get(id);
+    if (!product || product.archivedAt !== null) return null;
+    product.archivedAt = new Date();
+    this.products.set(id, product);
+    return product;
+  }
+
+  restore(id) {
+    const product = this.products.get(id);
+    if (!product || product.archivedAt === null) return null;
+    product.archivedAt = null;
+    this.products.set(id, product);
     return product;
   }
 }
