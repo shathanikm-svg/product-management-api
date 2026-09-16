@@ -1,0 +1,331 @@
+openapi: 3.1.0
+info:
+  title: Product Management API
+  version: 1.0.0
+  description: API for managing a product catalogue with search, filtering, and soft-archive support.
+
+servers:
+  - url: http://localhost:3000
+
+paths:
+  /products:
+    get:
+      summary: Retrieve a list of products
+      description: Returns a list of non-archived products, optionally filtered by category, status, price range, stock availability, or search term.
+      parameters:
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/Category'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/Status'
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+            format: float
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+            format: float
+        - name: inStock
+          in: query
+          schema:
+            type: string
+            description: "Pass 'true' or 'false'"
+            enum: ["true", "false"]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A list of products
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListEnvelope'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create a new product
+      description: Adds a new product to the catalogue. Ensures SKU uniqueness.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '201':
+          description: Product created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductEnvelope'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict - Product with this SKU already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      summary: Get a product by ID
+      description: Returns a single non-archived product by its unique ID.
+      responses:
+        '200':
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductEnvelope'
+        '404':
+          description: Product not found or archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update a product
+      description: Partially updates product details. Ensures SKU uniqueness if SKU is updated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductPatch'
+      responses:
+        '200':
+          description: Product updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductEnvelope'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found or archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict - Updated SKU already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Soft-archive a product
+      description: Archives a product by setting archivedAt to the current date.
+      responses:
+        '200':
+          description: Product successfully archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductEnvelope'
+        '404':
+          description: Product not found or already archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/{id}/restore:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    delete:
+      summary: Restore an archived product
+      description: Reverses soft-archive by setting archivedAt back to null.
+      responses:
+        '200':
+          description: Product successfully restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductEnvelope'
+        '404':
+          description: Product not found or not archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    Category:
+      type: string
+      enum: [electronics, clothing, food, books, other]
+      default: other
+
+    Status:
+      type: string
+      enum: [active, inactive, discontinued]
+      default: active
+
+    Product:
+      type: object
+      required: [id, name, sku, price, stock, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sku:
+          type: string
+        description:
+          type: string
+          default: ''
+        category:
+          $ref: '#/components/schemas/Category'
+        price:
+          type: number
+          format: float
+          minimum: 0.01
+        stock:
+          type: integer
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/Status'
+        createdAt:
+          type: string
+          format: date-time
+        archivedAt:
+          type: [string, 'null']
+          format: date-time
+          nullable: true
+
+    ProductInput:
+      type: object
+      required: [name, sku]
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        price:
+          type: number
+          format: float
+          minimum: 0.01
+        stock:
+          type: integer
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/Status'
+
+    ProductPatch:
+      type: object
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        price:
+          type: number
+          format: float
+          minimum: 0.01
+        stock:
+          type: integer
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/Status'
+
+    ApiEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: any
+        error:
+          type: any
+
+    ProductEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Product'
+            error:
+              type: [string, 'null']
+
+    ProductListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Product'
+            error:
+              type: [string, 'null']
+
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          const: false
+        error:
+          type: string

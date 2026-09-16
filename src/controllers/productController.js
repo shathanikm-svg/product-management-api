@@ -1,6 +1,15 @@
 import productModel from '../models/product.js';
 import catchAsync from '../middleware/catchAsync.js';
 
+/**
+ * Retrieve all products based on query filters.
+ *
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} next
+ * @returns {Promise<void>}
+ * @status 200 - Success
+ */
 export const getAllProducts = catchAsync(async (req, res, next) => {
   const products = productModel.findAll(req.query);
   res.json({
@@ -10,6 +19,16 @@ export const getAllProducts = catchAsync(async (req, res, next) => {
   });
 });
 
+/**
+ * Retrieve a single product by ID.
+ *
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} next
+ * @returns {Promise<void>}
+ * @status 200 - Success
+ * @status 404 - Product not found
+ */
 export const getProductById = catchAsync(async (req, res, next) => {
   const product = productModel.findById(req.params.id);
   if (!product) {
@@ -22,6 +41,16 @@ export const getProductById = catchAsync(async (req, res, next) => {
   });
 });
 
+/**
+ * Create a new product.
+ *
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} next
+ * @returns {Promise<void>}
+ * @status 201 - Product created
+ * @status 409 - SKU already exists
+ */
 export const createProduct = catchAsync(async (req, res, next) => {
   const product = productModel.create(req.body);
   res.status(201).json({
@@ -31,6 +60,17 @@ export const createProduct = catchAsync(async (req, res, next) => {
   });
 });
 
+/**
+ * Update an existing product.
+ *
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} next
+ * @returns {Promise<void>}
+ * @status 200 - Product updated
+ * @status 404 - Product not found
+ * @status 409 - SKU already exists
+ */
 export const updateProduct = catchAsync(async (req, res, next) => {
   const product = productModel.update(req.params.id, req.body);
   if (!product) {
@@ -43,6 +83,16 @@ export const updateProduct = catchAsync(async (req, res, next) => {
   });
 });
 
+/**
+ * Soft-delete a product.
+ *
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} next
+ * @returns {Promise<void>}
+ * @status 200 - Product archived
+ * @status 404 - Product not found or already archived
+ */
 export const deleteProduct = catchAsync(async (req, res, next) => {
   const product = productModel.delete(req.params.id);
   if (!product) {
@@ -55,6 +105,16 @@ export const deleteProduct = catchAsync(async (req, res, next) => {
   });
 });
 
+/**
+ * Restore a soft-deleted product.
+ *
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} next
+ * @returns {Promise<void>}
+ * @status 200 - Product restored
+ * @status 404 - Product not found or not archived
+ */
 export const restoreProduct = catchAsync(async (req, res, next) => {
   const product = productModel.restore(req.params.id);
   if (!product) {
